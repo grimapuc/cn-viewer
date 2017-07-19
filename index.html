@@ -1,0 +1,320 @@
+<html>
+<head><title>CONCEPTNET 5.4 VISOR</title>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+<script src="//d3js.org/d3.v4.min.js" charset="utf-8"></script>
+<script src="d3-tip.js" charset="utf-8"></script>
+
+<style>   
+    .d3-tip {
+      line-height: 1;
+      padding: 6px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+ 
+    /* Creates a small triangle extender for the tooltip */
+    .d3-tip:after {
+      box-sizing: border-box;
+      display: inline;
+      font-size: 10px;
+      width: 100%;
+      line-height: 1;
+      color: rgba(0, 0, 0, 0.8);
+      content: "\25BC";
+      position: absolute;
+      text-align: center;
+    }
+ 
+    /* Style northward tooltips specifically */
+    .d3-tip.n:after {
+      margin: -2px 0 0 0;
+      top: 100%;
+      left: 0;
+    }
+</style>
+
+
+<style>
+rect {
+  fill: none;
+  pointer-events: all;
+}
+
+.node {
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+
+.oldnode{
+	fill: #000;
+	r: 10;
+	stroke-width: 1.5px;
+}
+
+.cursor {
+  fill: none;
+  stroke: blue;
+  pointer-events: none;
+}
+
+.link {
+  stroke: #999;
+}
+</style>
+
+
+
+
+<script>
+var links, nodes, link, node, cursor;
+var svg;
+var graph = {};
+var relations = [];
+var lastNode = 0;
+var lastGroup = 0;
+var groups = [""];
+
+var context, canvas;
+
+var width = 960,
+    height = 500;
+
+
+
+var color = d3.scaleOrdinal(d3.schemeCategory10);
+
+console.log("Creating Simulation object...");
+
+var simulation;
+var tooltip;
+var colorDict;
+
+
+$(document).ready(function(){
+
+	console.log("Initializing...");
+
+	// Add the SVG where the graph will live
+    svg = d3.select("body").append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+/*    svg.append("rect")
+        .attr("width", width)
+        .attr("height", height)
+        .style("fill", "none")
+        .style("stroke","black")
+        .style("stroke-width",1);
+*/
+
+
+	tooltip = d3.select("body")
+		.append("div")
+		.style("position", "absolute")
+		.style("z-index", "10")
+		.style("visibility", "hidden")
+		.text("a simple tooltip");
+
+    readAndFillGraph();
+	
+});
+
+
+function readAndFillGraph() {
+
+	console.log("[readAndFillGraph] Making query to CONCEPTNET API ...");
+
+	url_api = "http://hercules.ing.puc.cl/cruz/apiCN/data/5.4";
+	query_lang = "/c/en/";
+	parsed = parse("q");
+	console.log(parsed);
+	$("#spanCurrentNodeName").html("<b>"+parsed+"</b>")
+
+	if(parsed != "Not found") {
+	    $.ajax({
+			url: url_api + query_lang + parsed,
+			success: function(result) {
+				var currentRel, lastNode;
+
+				console.log("[readAndFillGraph] Received result");
+				console.log("Number of edges: " + result.numFound);
+				console.log(result);
+				
+				graph = {"nodes":[], "links":[]};
+
+				centerNode = {"name":parsed, "group":0, "w":5}
+				graph.nodes.push(centerNode);
+
+
+				console.log("------------------ GRAPH.nodes -----------------");
+				console.log(graph.nodes);
+				console.log("------------------ GRAPH.links -----------------");
+				console.log(graph.links);
+				console.log("------------------ ----------- -----------------");
+
+				//group = 1
+
+				
+				for(i=0;i<result.numFound;i++) {
+
+					// consider only nodes where the center is the 'start' of the relation
+					//console.log("START: "+ result.edges[i].start);
+					if(query_lang + parsed == result.edges[i].start) {
+						
+						// is currentRel in array 'groups' ?
+						currentRel = result.edges[i].rel;
+						g = $.inArray(currentRel, groups);
+						if(g == -1) {
+							group = groups.length;
+							groups.push(currentRel);
+						}
+						else {
+							group = g;
+						}
+
+						//Create node
+						node = {"name":result.edges[i].rel+"-->"+result.edges[i].end+" w:"+result.edges[i].weight, 
+						        "group":group, 
+						        "index":group, 
+						        "w":result.edges[i].weight, 
+						        "nodeName":result.edges[i].end };
+						graph.nodes.push(node);
+
+						lastNode = graph.nodes.length-1;
+
+						console.log("NODE "+lastNode+": ");
+						//console.log(node);
+
+						//Add link from center to new node
+						graph.links.push({"source":0, 
+							              "target":lastNode, 
+							              "relType":result.edges[i].rel, 
+							              "w":result.edges[i].weight});
+
+						console.log("Added  : " + result.edges[i].start + " " + result.edges[i].rel + " " + result.edges[i].end);
+					}
+					else {
+						// Ignore assertions like: "mazda IsA car"
+						console.log("Ignored: " + result.edges[i].start + " " + result.edges[i].rel + " " + result.edges[i].end);
+					}
+
+
+				}
+				graph.nodes.sort(function(a,b) { return a.group - b.group; } );
+
+				console.log("------------------ GRAPH.nodes ("+ graph.nodes.length +") -----------------");
+				console.log(graph.nodes);
+				console.log("------------------ GRAPH.links ("+ graph.links.length +") -----------------");
+				console.log(graph.links);
+				console.log("------------------ ----------- -----------------");
+
+				drawGraph();
+
+			}
+		});
+	}
+	else {
+		$("#spanCurrentNodeName").html("<b>"+parsed+"</b> (error connecting)");
+	}
+
+}
+
+function drawGraph() {
+
+	//console.log(JSON.stringify(graph.nodes))
+
+	simulation = d3.forceSimulation()
+	.force("link", d3.forceLink().id(function(d) { return d.index; }).distance(function(d) { return 30+1/(d.w); }))
+    .force("collide",d3.forceCollide( function(d){return d.r + 30 }).iterations(16) )
+//	.force("charge", d3.forceManyBody().strength(-150))
+	.force("charge", d3.forceManyBody().strength(-200))
+//	.force("charge", d3.forceManyBody().strength( function(d){ return -100*d.group }))
+	.force("center", d3.forceCenter(width/2, height/2))
+	.force("y",d3.forceY(0))
+	.force("x",d3.forceX(0))
+	//.alpha(1)
+
+	console.log("[drawGraph] Drawing Graph with " + graph.nodes.length + " nodes");
+
+	var tool_tip = d3.tip()
+      .attr("class", "d3-tip")
+      .offset([-8, 0])
+      .html(function(d) { return d.name; });
+    svg.call(tool_tip);
+
+
+	link = svg.append("g")
+			  .attr("class","links")
+			  .selectAll("line")
+			  .data(graph.links)
+			  .enter()
+			  .append("line")
+			  .attr("stroke","black");
+
+	node = svg.append("g")
+			  .attr("class","nodes")
+			  .selectAll("circle")
+			  .data(graph.nodes)
+			  .enter()
+			  .append("circle")
+			  .attr("r", function(d) { return d.w * 3 })
+			  .style("fill", function(d) { return color(d.group); })
+			  .on("mouseover", tool_tip.show)
+			  .on("mouseout", tool_tip.hide)
+
+	var ticked = function() {
+            link
+                .attr("x1", function(d) { return d.source.x; })
+                .attr("y1", function(d) { return d.source.y; })
+                .attr("x2", function(d) { return d.target.x; })
+                .attr("y2", function(d) { return d.target.y; });
+    
+            node
+                .attr("cx", function(d) { return d.x; })
+                .attr("cy", function(d) { return d.y; });
+        }
+
+	simulation.nodes(graph.nodes)
+		.on("tick", ticked);
+
+	simulation.force("link")
+		.links(graph.links);
+
+	//console.log(JSON.stringify(graph.nodes))
+
+}
+
+
+
+function parse(val) {
+    var result = "Not found",
+    tmp = [];
+    location.search
+    //.replace ( "?", "" ) 
+    // this is better, there might be a question mark inside
+    .substr(1)
+        .split("&")
+        .forEach(function (item) {
+        tmp = item.split("=");
+        if (tmp[0] === val) result = decodeURIComponent(tmp[1]);
+    });
+    return result;
+}
+
+
+</script>
+
+
+</head>
+<body>
+
+  ConceptNet 5.4 Visualization. Current node: <span id="spanCurrentNodeName">a</span><br/><hr/>
+  <div id="biggerDiv" style="visibility:hidden; width:100%; display:table; ">
+  	
+  </div>
+  <hr/><br/>
+  <div id="divFiles" style="border:1px solid red;">...</div>
+</body>
+</html>
