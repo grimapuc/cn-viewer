@@ -5,7 +5,7 @@ Visualization for browsing the ConceptNet Graph
 
 The `better.html` version use the ConceptNet 5.5 API available from `api.conceptnet.io`. 
 
-Just open `better.html` in browser, ~~or go to <hercules.ing.puc.cl/~cruz/cn-viewer/better.html>~~
+Just open `better.html` in browser, ~~or go to <hercules.ing.puc.cl/cruz/cn-viewer/better.html>~~
 
 ## Requirements for running locally
 
