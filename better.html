@@ -145,6 +145,7 @@ function readAndFillGraph() {
 	if(parsed != "Not found") {
 		$.ajax({
 			url: url_api + query_lang + parsed + "?limit=50",
+			dataType: 'json',
 			success: function(result) {
 				var currentRel, lastNode;
 
