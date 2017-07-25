@@ -90,7 +90,8 @@ var nodetip, linktip;
 //var clusterPadding = 6; // separation between different-color circles
 var clusters = [];
 //-copied
-var url_api = "http://hercules.ing.puc.cl/cruz/apiCN/data/5.4";
+//var url_api = "http://hercules.ing.puc.cl/cruz/apiCN/data/5.4";
+var url_api = "http://api.conceptnet.io";
 
 
 var color = d3.scaleOrdinal(d3.schemeCategory10);
@@ -143,12 +144,12 @@ function readAndFillGraph() {
 
 	if(parsed != "Not found") {
 		$.ajax({
-			url: url_api + query_lang + parsed,
+			url: url_api + query_lang + parsed + "?limit=50",
 			success: function(result) {
 				var currentRel, lastNode;
 
 				console.log("[readAndFillGraph] Received result");
-				console.log("Number of edges: " + result.numFound);
+				console.log("[readAndFillGraph] Number of edges: " + result.edges.length);
 				console.log(result);
 				
 				graph = {"nodes":[], "links":[]};
@@ -164,16 +165,14 @@ function readAndFillGraph() {
 				console.log("------------------ ----------- -----------------");
 
 				//group = 1
-
-				
-				for(i=0;i<result.numFound;i++) {
+				for(i=0;i<result.edges.length;i++) {
 
 					// consider only nodes where the center is the 'start' of the relation
 					//console.log("START: "+ result.edges[i].start);
-					if(query_lang + parsed == result.edges[i].start) {
+					if(query_lang + parsed == result.edges[i].start.term) {
 						
 						// is currentRel in array 'groups' ?
-						currentRel = result.edges[i].rel;
+						currentRel = result.edges[i].rel.label;
 						g = $.inArray(currentRel, groups);
 						if(g == -1) {
 							group = groups.length;
@@ -184,12 +183,12 @@ function readAndFillGraph() {
 						}
 
 						//Create node
-						node = {"name":result.edges[i].rel+"-->"+result.edges[i].end+" w:"+result.edges[i].weight, 
+						node = {"name":result.edges[i].rel.label+"-->"+result.edges[i].end.label+" w:"+result.edges[i].weight, 
 								"group":group, 
 								"cluster":group,
 								"index":group, 
 								"w":1,//result.edges[i].weight, 
-								"nodeName":result.edges[i].end };
+								"nodeName":result.edges[i].end.term };
 						graph.nodes.push(node);
 
 						lastNode = graph.nodes.length-1;
@@ -203,16 +202,16 @@ function readAndFillGraph() {
 						//Add link from center to new node
 						graph.links.push({"source":0, 
 										  "target":lastNode, 
-										  "relType":result.edges[i].rel, 
-										  "linkname":result.edges[i].rel,
+										  "relType":result.edges[i].rel.label, 
+										  "linkname":result.edges[i].rel.label,
 										  "w":result.edges[i].weight
 										});
 
-						console.log("Added  : " + result.edges[i].start + " " + result.edges[i].rel + " " + result.edges[i].end);
+						console.log("Added  : " + result.edges[i].start.term + " " + result.edges[i].rel.label + " " + result.edges[i].end.term);
 					}
 					else {
 						// Ignore assertions like: "mazda IsA car"
-						console.log("Ignored: " + result.edges[i].start + " " + result.edges[i].rel + " " + result.edges[i].end);
+						console.log("Ignored: " + result.edges[i].start.term + " " + result.edges[i].rel.label + " " + result.edges[i].end.term);
 					}
 
 
@@ -350,15 +349,15 @@ function addNodes(d) {
 		success: function(result) {
 			var currentRel, lastNode;
 			console.log("[addNodes] Received result");
-			console.log("[addNodes] Number of edges: " + result.numFound);
+			console.log("[addNodes] Number of edges: " + result.edges.length);
 			console.log(result);
 			centerNode = d;
-			for(i=0;i<result.numFound;i++) {
+			for(i=0;i<result.edges.length;i++) {
 				// consider only nodes where the center is the 'start' of the relation
 				//console.log("START: "+ result.edges[i].start);
-				if(centerNode.nodeName == result.edges[i].start) {
+				if(centerNode.nodeName == result.edges[i].start.term) {
 					// is currentRel in array 'groups' ?
-					currentRel = result.edges[i].rel;
+					currentRel = result.edges[i].rel.label;
 					g = $.inArray(currentRel, groups);
 					if(g == -1) {
 						group = groups.length;
@@ -369,12 +368,12 @@ function addNodes(d) {
 					}
 
 					//Create node
-					node = {"name":result.edges[i].rel+"-->"+result.edges[i].end+" w:"+result.edges[i].weight, 
+					node = {"name":result.edges[i].rel.label+"-->"+result.edges[i].end.label+" w:"+result.edges[i].weight, 
 							"group":group, 
 							"cluster":group,
 							"index":group, 
 							"w":1,//result.edges[i].weight, 
-							"nodeName":result.edges[i].end };
+							"nodeName":result.edges[i].end.term };
 					graph.nodes.push(node);
 
 					lastNode = graph.nodes.length-1;
@@ -385,19 +384,20 @@ function addNodes(d) {
 						clusters.push(node);
 					}
 
+
 					//Add link from center to new node
 					graph.links.push({"source":centerNode.index, 
 									  "target":lastNode, 
-									  "relType":result.edges[i].rel, 
-									  "linkname":result.edges[i].rel,
+									  "relType":result.edges[i].rel.label, 
+									  "linkname":result.edges[i].rel.label,
 									  "w":result.edges[i].weight
 									});
 
-					console.log("Added  : " + result.edges[i].start + " " + result.edges[i].rel + " " + result.edges[i].end);
+					console.log("Added  : " + result.edges[i].start.term + " " + result.edges[i].rel.label + " " + result.edges[i].end.term);
 				}
 				else {
 					// Ignore assertions like: "mazda IsA car"
-					console.log("Ignored: " + result.edges[i].start + " " + result.edges[i].rel + " " + result.edges[i].end);
+					console.log("Ignored: " + result.edges[i].start.term + " " + result.edges[i].rel.label + " " + result.edges[i].end.term);
 				}
 			}
 
